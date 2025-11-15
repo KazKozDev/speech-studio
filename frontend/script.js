@@ -334,10 +334,23 @@ async function synthesizeAudio() {
             throw new Error(errorData.detail || 'Failed to synthesize audio');
         }
 
-        const blob = await response.blob();
+        const data = await response.json();
+
+        // Decode base64 audio to blob
+        const binaryString = atob(data.audio);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const mimeType = data.format === 'wav' ? 'audio/wav' : 'audio/mpeg';
+        const blob = new Blob([bytes], { type: mimeType });
+
         showStatus('✅ Audio generated successfully!', 'success');
         progressBar.style.display = 'none';
 
+        // Return blob with speed tags info attached
+        blob.speedTags = data.speedTags || [];
         return blob;
     } catch (error) {
         console.error('Error synthesizing audio:', error);

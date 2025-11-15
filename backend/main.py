@@ -4,6 +4,7 @@ import re
 import tempfile
 import os
 import random
+import base64
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -227,41 +228,41 @@ class TTSStatus(BaseModel):
     message: str
 
 
-def parse_speed_tags(text: str) -> List[tuple]:
-    """Parse text into parts with speed control tags
-    Returns list of tuples: ('text', content, speed) where speed is relative change
+def extract_speed_tags(text: str) -> tuple:
+    """Extract speed tag information and return cleaned text
+    Returns: (cleaned_text, speed_tags_info)
+    speed_tags_info: list of dicts with 'type' (slow/fast) and 'position' in cleaned text
     """
-    parts = []
-    last_end = 0
+    speed_tags = []
+    cleaned_text = text
+    current_pos = 0
 
-    # Combined pattern to match either <slow> or <fast> tags
+    # Pattern to match <slow> and <fast> tags
     combined_pattern = r'<(slow|fast)>(.*?)</\1>'
 
     for match in re.finditer(combined_pattern, text, re.IGNORECASE):
-        start, end = match.span()
         tag_type = match.group(1).lower()
         content = match.group(2)
 
-        # Add normal text before this tag
-        if start > last_end:
-            text_part = text[last_end:start].strip()
-            if text_part:
-                parts.append(('text', text_part, 0))  # speed 0 = normal
+        # Find position in cleaned text (accounting for removed tags)
+        # Find content position in original text relative to our search
+        original_pos = match.start()
 
-        # Add speed-controlled text
-        if content.strip():
-            speed_offset = -30 if tag_type == 'slow' else +30  # Slow: -30%, Fast: +30%
-            parts.append(('text', content.strip(), speed_offset))
+        # Calculate position in cleaned text
+        text_before_tag = text[:original_pos]
+        cleaned_before = re.sub(combined_pattern, r'\2', text_before_tag, flags=re.IGNORECASE)
+        position_in_cleaned = len(cleaned_before)
 
-        last_end = end
+        speed_tags.append({
+            'type': tag_type,
+            'position': position_in_cleaned,
+            'length': len(content)
+        })
 
-    # Add remaining text
-    if last_end < len(text):
-        text_part = text[last_end:].strip()
-        if text_part:
-            parts.append(('text', text_part, 0))
+    # Remove all speed tags from text
+    cleaned_text = re.sub(combined_pattern, r'\2', text, flags=re.IGNORECASE)
 
-    return parts if parts else [('text', text, 0)]
+    return cleaned_text, speed_tags
 
 
 def parse_pauses(text: str) -> List[tuple]:
@@ -364,7 +365,7 @@ async def get_languages():
 
 @app.post("/synthesize")
 async def synthesize_tts(request: TTSRequest):
-    """Synthesize text to speech with quality and format options"""
+    """Synthesize text to speech with speed and pause tags"""
     try:
         # Validate inputs
         if not request.text or not request.text.strip():
@@ -385,59 +386,47 @@ async def synthesize_tts(request: TTSRequest):
         rate = format_rate(request.speed)
         bitrate = get_bitrate(request.quality, request.speed)
 
-        # Determine content type based on format
+        # Determine format
         if request.format == "wav":
-            content_type = "audio/wav"
             output_format = "wav"
         else:
-            content_type = "audio/mpeg"
             output_format = "mp3"
 
         logger.info(f"Generating TTS: {request.language}/{request.voice}, speed={request.speed}, quality={request.quality}, format={request.format}")
 
-        # Parse speed tags first
-        speed_parts = parse_speed_tags(request.text)
+        # Extract speed tags and clean text
+        cleaned_text, speed_tags_info = extract_speed_tags(request.text)
 
-        # Check if we have any special tags (speed or pause)
-        has_speed_tags = any(p[2] != 0 for p in speed_parts)
+        # Parse pauses in cleaned text
+        pause_parts = parse_pauses(cleaned_text)
 
-        # Build audio combining speed and pause tags
+        # Build audio with pauses
         final_audio = AudioSegment.empty()
 
-        for part_type, text_value, speed_offset in speed_parts:
-            # Parse pauses within this speed-tagged section
-            pause_parts = parse_pauses(text_value)
+        for part_type, content in pause_parts:
+            if part_type == 'text':
+                if not content.strip():
+                    continue
 
-            for pause_type, pause_content in pause_parts:
-                if pause_type == 'text':
-                    if not pause_content.strip():
-                        continue
+                communicate = edge_tts.Communicate(
+                    text=content,
+                    voice=voice_code,
+                    rate=rate
+                )
 
-                    # Calculate actual speed for this segment
-                    segment_speed = request.speed + speed_offset
-                    segment_speed = max(-50, min(50, segment_speed))  # Clamp to valid range
-                    segment_rate = format_rate(segment_speed)
-                    segment_bitrate = get_bitrate(request.quality, segment_speed)
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+                temp_file.close()
 
-                    communicate = edge_tts.Communicate(
-                        text=pause_content,
-                        voice=voice_code,
-                        rate=segment_rate
-                    )
+                await communicate.save(temp_file.name)
 
-                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
-                    temp_file.close()
+                segment = AudioSegment.from_mp3(temp_file.name)
+                final_audio += segment
 
-                    await communicate.save(temp_file.name)
+                os.unlink(temp_file.name)
 
-                    segment = AudioSegment.from_mp3(temp_file.name)
-                    final_audio += segment
-
-                    os.unlink(temp_file.name)
-
-                elif pause_type == 'pause':
-                    pause_segment = get_background_segment(pause_content)
-                    final_audio += pause_segment
+            elif part_type == 'pause':
+                pause_segment = get_background_segment(content)
+                final_audio += pause_segment
 
         # Normalize the final audio
         final_audio = normalize_audio(final_audio)
@@ -452,11 +441,21 @@ async def synthesize_tts(request: TTSRequest):
 
         final_audio.export(temp_file.name, **export_params)
 
-        return FileResponse(
-            path=temp_file.name,
-            media_type=content_type,
-            filename=f"audio.{output_format}"
-        )
+        # Read audio file and encode to base64
+        with open(temp_file.name, 'rb') as f:
+            audio_data = f.read()
+
+        audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+
+        # Clean up temp file
+        os.unlink(temp_file.name)
+
+        # Return JSON with audio and speed tag information
+        return {
+            "audio": audio_base64,
+            "format": output_format,
+            "speedTags": speed_tags_info
+        }
 
     except HTTPException:
         raise
