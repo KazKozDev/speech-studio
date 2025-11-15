@@ -11,6 +11,19 @@ cd "$PROJECT_DIR"
 echo "🚀 Starting Speech Studio..."
 echo "📁 Project directory: $PROJECT_DIR"
 
+# Clean up port 8000 if it's in use
+PORT=8000
+echo "🧹 Checking for processes on port $PORT..."
+if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null 2>&1 ; then
+    PID=$(lsof -Pi :$PORT -sTCP:LISTEN -t)
+    echo "⚠️  Found process on port $PORT (PID: $PID). Killing it..."
+    kill -9 $PID 2>/dev/null || true
+    sleep 1
+    echo "✅ Port $PORT is now free"
+else
+    echo "✅ Port $PORT is available"
+fi
+
 # Navigate to backend
 cd backend
 
