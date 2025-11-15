@@ -60,8 +60,5 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Docker
-.dockerignore
-
 # Railway
 .railway/
