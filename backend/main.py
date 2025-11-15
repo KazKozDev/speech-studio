@@ -227,15 +227,41 @@ class TTSStatus(BaseModel):
     message: str
 
 
-def convert_speed_tags(text: str) -> str:
-    """Convert <slow> and <fast> tags to SSML prosody tags"""
-    # Convert <slow>text</slow> to <prosody rate="slower">text</prosody>
-    text = re.sub(SLOW_TAG_REGEX, r'<prosody rate="slower">\1</prosody>', text, flags=re.IGNORECASE)
+def parse_speed_tags(text: str) -> List[tuple]:
+    """Parse text into parts with speed control tags
+    Returns list of tuples: ('text', content, speed) where speed is relative change
+    """
+    parts = []
+    last_end = 0
 
-    # Convert <fast>text</fast> to <prosody rate="faster">text</prosody>
-    text = re.sub(FAST_TAG_REGEX, r'<prosody rate="faster">\1</prosody>', text, flags=re.IGNORECASE)
+    # Combined pattern to match either <slow> or <fast> tags
+    combined_pattern = r'<(slow|fast)>(.*?)</\1>'
 
-    return text
+    for match in re.finditer(combined_pattern, text, re.IGNORECASE):
+        start, end = match.span()
+        tag_type = match.group(1).lower()
+        content = match.group(2)
+
+        # Add normal text before this tag
+        if start > last_end:
+            text_part = text[last_end:start].strip()
+            if text_part:
+                parts.append(('text', text_part, 0))  # speed 0 = normal
+
+        # Add speed-controlled text
+        if content.strip():
+            speed_offset = -30 if tag_type == 'slow' else +30  # Slow: -30%, Fast: +30%
+            parts.append(('text', content.strip(), speed_offset))
+
+        last_end = end
+
+    # Add remaining text
+    if last_end < len(text):
+        text_part = text[last_end:].strip()
+        if text_part:
+            parts.append(('text', text_part, 0))
+
+    return parts if parts else [('text', text, 0)]
 
 
 def parse_pauses(text: str) -> List[tuple]:
@@ -369,69 +395,49 @@ async def synthesize_tts(request: TTSRequest):
 
         logger.info(f"Generating TTS: {request.language}/{request.voice}, speed={request.speed}, quality={request.quality}, format={request.format}")
 
-        # Convert speed tags to SSML
-        processed_text = convert_speed_tags(request.text)
+        # Parse speed tags first
+        speed_parts = parse_speed_tags(request.text)
 
-        # Parse text for pauses
-        parts = parse_pauses(processed_text)
+        # Check if we have any special tags (speed or pause)
+        has_speed_tags = any(p[2] != 0 for p in speed_parts)
 
-        # If no pauses or pydub unavailable, use simple method
-        if not any(p[0] == 'pause' for p in parts) or not PYDUB_AVAILABLE:
-            communicate = edge_tts.Communicate(
-                text=processed_text,
-                voice=voice_code,
-                rate=rate
-            )
-
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f'.{output_format}')
-            temp_file.close()
-
-            await communicate.save(temp_file.name)
-
-            # Load, normalize, and re-export with quality settings
-            if PYDUB_AVAILABLE:
-                audio = AudioSegment.from_mp3(temp_file.name)
-                audio = normalize_audio(audio)
-
-                export_params = {"format": output_format}
-                if output_format == "mp3":
-                    export_params["bitrate"] = bitrate
-
-                audio.export(temp_file.name, **export_params)
-
-            return FileResponse(
-                path=temp_file.name,
-                media_type=content_type,
-                filename=f"audio.{output_format}"
-            )
-
-        # Build audio with pauses
+        # Build audio combining speed and pause tags
         final_audio = AudioSegment.empty()
 
-        for part_type, content in parts:
-            if part_type == 'text':
-                if not content.strip():
-                    continue
+        for part_type, text_value, speed_offset in speed_parts:
+            # Parse pauses within this speed-tagged section
+            pause_parts = parse_pauses(text_value)
 
-                communicate = edge_tts.Communicate(
-                    text=content,
-                    voice=voice_code,
-                    rate=rate
-                )
+            for pause_type, pause_content in pause_parts:
+                if pause_type == 'text':
+                    if not pause_content.strip():
+                        continue
 
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
-                temp_file.close()
+                    # Calculate actual speed for this segment
+                    segment_speed = request.speed + speed_offset
+                    segment_speed = max(-50, min(50, segment_speed))  # Clamp to valid range
+                    segment_rate = format_rate(segment_speed)
+                    segment_bitrate = get_bitrate(request.quality, segment_speed)
 
-                await communicate.save(temp_file.name)
+                    communicate = edge_tts.Communicate(
+                        text=pause_content,
+                        voice=voice_code,
+                        rate=segment_rate
+                    )
 
-                segment = AudioSegment.from_mp3(temp_file.name)
-                final_audio += segment
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+                    temp_file.close()
 
-                os.unlink(temp_file.name)
+                    await communicate.save(temp_file.name)
 
-            elif part_type == 'pause':
-                pause_segment = get_background_segment(content)
-                final_audio += pause_segment
+                    segment = AudioSegment.from_mp3(temp_file.name)
+                    final_audio += segment
+
+                    os.unlink(temp_file.name)
+
+                elif pause_type == 'pause':
+                    pause_segment = get_background_segment(pause_content)
+                    final_audio += pause_segment
 
         # Normalize the final audio
         final_audio = normalize_audio(final_audio)
