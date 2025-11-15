@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech Studio - Powered by Microsoft Edge TTS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Speech Studio</h1>
+            <p class="subtitle">Professional Text-to-Speech Powered by Microsoft Edge TTS</p>
+        </header>
+
+        <main class="main-content">
+            <!-- Settings Panel -->
+            <div class="settings-panel">
+                <div class="settings-grid">
+                    <!-- Language Selection -->
+                    <div class="form-group">
+                        <label for="language">Language</label>
+                        <select id="language" class="form-control">
+                            <option value="">Loading languages...</option>
+                        </select>
+                    </div>
+
+                    <!-- Voice Selection -->
+                    <div class="form-group">
+                        <label for="voice">Voice</label>
+                        <select id="voice" class="form-control" disabled>
+                            <option value="">Select a language first</option>
+                        </select>
+                    </div>
+
+                    <!-- Speed Control -->
+                    <div class="form-group">
+                        <label for="speed">Speed: <span id="speed-value">0%</span></label>
+                        <div class="slider-container">
+                            <input type="range" id="speed" class="slider" min="-50" max="50" value="0">
+                            <div class="speed-labels">
+                                <span>-50%</span>
+                                <span>0%</span>
+                                <span>+50%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quality Control -->
+                    <div class="form-group">
+                        <label for="quality">Quality</label>
+                        <select id="quality" class="form-control">
+                            <option value="normal">Normal (128 kbps)</option>
+                            <option value="high">High Quality (320 kbps)</option>
+                        </select>
+                    </div>
+
+                    <!-- Format Control -->
+                    <div class="form-group">
+                        <label for="format">Audio Format</label>
+                        <select id="format" class="form-control">
+                            <option value="mp3">MP3</option>
+                            <option value="wav">WAV (Lossless)</option>
+                        </select>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Text Input Area -->
+            <div class="text-input-section">
+                <div class="text-header">
+                    <h2>Text to Synthesize</h2>
+                    <div class="help-button" id="help-btn" title="Show pause syntax help">?</div>
+                </div>
+
+                <textarea id="text-input" class="text-area" placeholder="Enter your text here...
+
+Tip: Use &lt;pause 500&gt; or &lt;pause 1.5s&gt; for pauses
+Example: Hello<pause 1s>how are you?"></textarea>
+
+                <div class="text-info">
+                    <span id="char-count">0</span> characters
+                </div>
+            </div>
+
+            <!-- Control Buttons -->
+            <div class="button-group">
+                <button id="play-btn" class="btn btn-primary btn-large">
+                    Play
+                </button>
+                <button id="download-btn" class="btn btn-secondary btn-large">
+                    <span id="download-label">Download MP3</span>
+                </button>
+                <button id="stop-btn" class="btn btn-danger btn-large" style="display: none;">
+                    Stop
+                </button>
+                <button id="clear-btn" class="btn btn-outline">
+                    Clear
+                </button>
+            </div>
+
+            <!-- Status Area -->
+            <div class="status-area">
+                <div id="status-message" class="status-message"></div>
+                <div id="progress-bar" class="progress-bar" style="display: none;">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- Audio Player -->
+            <div class="player-section" id="player-section" style="display: none;">
+                <h3>Preview</h3>
+                <audio id="audio-player" controls>
+                    <p>Your browser doesn't support HTML5 audio.</p>
+                </audio>
+            </div>
+        </main>
+
+        <!-- Help Modal -->
+        <div id="help-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Pause Syntax Help</h2>
+                    <button class="modal-close" id="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <h3>How to use pause tags:</h3>
+                    <p>Insert pause tags directly in your text to add silence:</p>
+
+                    <div class="syntax-box">
+                        <p><strong>&lt;pause 500&gt;</strong> - pause for 500 milliseconds</p>
+                        <p><strong>&lt;pause 1.5s&gt;</strong> - pause for 1.5 seconds</p>
+                        <p><strong>&lt;pause&gt;</strong> - default pause (500ms)</p>
+                    </div>
+
+                    <h3>Example:</h3>
+                    <div class="example-box">
+                        <p>Hello&lt;pause 800&gt;how are you?&lt;pause 1s&gt;I'm doing great!&lt;pause&gt;Thanks for asking.</p>
+                    </div>
+
+                    <h3>Notes:</h3>
+                    <ul>
+                        <li>Pause tags are removed from the final audio</li>
+                        <li>You can use milliseconds (default) or seconds (add 's' suffix)</li>
+                        <li>Pauses work with all languages and voices</li>
+                        <li>The server needs FFmpeg installed for pause support</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p><a href="https://github.com/kazkozdev" target="_blank">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
