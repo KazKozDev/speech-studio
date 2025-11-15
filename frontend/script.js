@@ -29,6 +29,10 @@ const modalClose = document.getElementById('modal-close');
 let languages = {};
 let currentAudio = null;
 let isPlaying = false;
+let audioContext = null;
+let audioSource = null;
+let speedTags = [];
+let cleanedText = '';
 
 
 // Initialize
@@ -220,6 +224,61 @@ function onClearClick() {
     showStatus('Text cleared', 'info');
 }
 
+// Setup speed tag playback control
+function setupSpeedTagPlayback(blob) {
+    if (!speedTags || speedTags.length === 0) return;
+
+    // Remove old listener if exists
+    audioPlayer.removeEventListener('timeupdate', onAudioTimeUpdate);
+
+    // Wait for audio to be loaded to get duration
+    audioPlayer.onloadedmetadata = () => {
+        const duration = audioPlayer.duration;
+        const textLength = cleanedText.length;
+
+        if (duration > 0 && textLength > 0) {
+            // Calculate time per character
+            const timePerChar = duration / textLength;
+
+            // Store speed tag timing info
+            const speedTagTiming = speedTags.map(tag => ({
+                type: tag.type,
+                startTime: tag.position * timePerChar,
+                endTime: (tag.position + tag.length) * timePerChar
+            }));
+
+            // Store in global for use in timeupdate
+            audioPlayer.speedTagTiming = speedTagTiming;
+            audioPlayer.normalPlaybackRate = 1.0;
+
+            // Add timeupdate listener
+            audioPlayer.addEventListener('timeupdate', onAudioTimeUpdate);
+        }
+    };
+}
+
+// Handle playback speed changes during playback
+function onAudioTimeUpdate() {
+    if (!audioPlayer.speedTagTiming) return;
+
+    const currentTime = audioPlayer.currentTime;
+    let targetRate = 1.0;
+
+    // Check which speed region we're in
+    for (const tag of audioPlayer.speedTagTiming) {
+        if (currentTime >= tag.startTime && currentTime < tag.endTime) {
+            // We're in a speed tag region
+            targetRate = tag.type === 'slow' ? 0.7 : 1.3; // 70% or 130% of normal speed
+            break;
+        }
+    }
+
+    // Update playback rate if changed
+    if (Math.abs(audioPlayer.playbackRate - targetRate) > 0.05) {
+        audioPlayer.playbackRate = targetRate;
+    }
+}
+
 // Synthesize and Play
 async function synthesizeAndPlay() {
     try {
@@ -238,6 +297,9 @@ async function synthesizeAndPlay() {
             const url = URL.createObjectURL(blob);
             audioPlayer.src = url;
 
+            // Setup speed tag playback control
+            setupSpeedTagPlayback(blob);
+
             // Show player section
             playerSection.style.display = 'block';
 
@@ -250,6 +312,7 @@ async function synthesizeAndPlay() {
             // Update status when finished
             audioPlayer.onended = () => {
                 isPlaying = false;
+                audioPlayer.playbackRate = 1.0;  // Reset to normal speed
                 updatePlayStopButtons();
                 showStatus('✅ Playback completed', 'success');
             };
@@ -349,8 +412,12 @@ async function synthesizeAudio() {
         showStatus('✅ Audio generated successfully!', 'success');
         progressBar.style.display = 'none';
 
+        // Store speed tags and cleaned text in global state for playback control
+        speedTags = data.speedTags || [];
+        cleanedText = data.cleanedText || '';
+
         // Return blob with speed tags info attached
-        blob.speedTags = data.speedTags || [];
+        blob.speedTags = speedTags;
         return blob;
     } catch (error) {
         console.error('Error synthesizing audio:', error);

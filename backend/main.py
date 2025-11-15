@@ -454,7 +454,8 @@ async def synthesize_tts(request: TTSRequest):
         return {
             "audio": audio_base64,
             "format": output_format,
-            "speedTags": speed_tags_info
+            "speedTags": speed_tags_info,
+            "cleanedText": cleaned_text
         }
 
     except HTTPException:
