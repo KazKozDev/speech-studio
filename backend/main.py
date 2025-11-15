@@ -458,7 +458,12 @@ async def health_check():
 
 # Mount static files (frontend)
 try:
-    app.mount("/", StaticFiles(directory="../frontend", html=True), name="static")
+    # Try current structure first (local development)
+    frontend_dir = "../frontend"
+    if not os.path.exists(frontend_dir):
+        # Try Docker structure
+        frontend_dir = "./frontend"
+    app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="static")
 except Exception as e:
     logger.warning(f"Could not mount static files: {e}")
 

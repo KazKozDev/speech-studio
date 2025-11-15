@@ -5,15 +5,16 @@ RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy requirements
-COPY backend/requirements.txt .
+# Copy backend files
+COPY backend/requirements.txt ./
+COPY backend/main.py ./
+COPY backend/studio-room-tone.wav ./
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend
-COPY backend/ .
-
-# Copy frontend
-COPY frontend/ /app/frontend/
+# Copy frontend to serve static files
+COPY frontend/ ./frontend/
 
 # Expose port
 EXPOSE 8000
