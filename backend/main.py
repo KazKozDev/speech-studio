@@ -315,11 +315,6 @@ def get_bitrate(quality: str, speed: int) -> str:
         return "320k" if quality == "high" else "128k"
 
 
-@app.get("/")
-async def root():
-    return {"message": "TTS Web API", "version": "1.0.0"}
-
-
 @app.get("/languages", response_model=LanguagesResponse)
 async def get_languages():
     """Get list of supported languages and voices"""
