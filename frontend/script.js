@@ -268,7 +268,7 @@ function onAudioTimeUpdate() {
     for (const tag of audioPlayer.speedTagTiming) {
         if (currentTime >= tag.startTime && currentTime < tag.endTime) {
             // We're in a speed tag region
-            targetRate = tag.type === 'slow' ? 0.7 : 1.3; // 70% or 130% of normal speed
+            targetRate = tag.type === 'slow' ? 0.9 : 1.1; // 90% or 110% of normal speed
             break;
         }
     }
