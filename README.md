@@ -39,15 +39,27 @@ English (British, American), Russian, German, French, Spanish, Italian, Dutch, P
 3. Adjust speed and quality
 4. Click Play to preview, Download to save
 
-### Pause Syntax
+### Text Control Tags
 
+**Pauses:**
 ```
-Normal pause (500ms):       <pause>
-Custom milliseconds:        <pause 800>
-Custom seconds:             <pause 1.5s>
+<pause>              - default pause (500ms)
+<pause 800>          - pause for 800 milliseconds
+<pause 1.5s>         - pause for 1.5 seconds
 ```
 
-Example: `Hello<pause 1s>how are you?`
+**Speed Control:**
+```
+<slow>text</slow>    - speak slower
+<fast>text</fast>    - speak faster
+```
+
+Example:
+```
+Hello<pause 1s>how are you?
+<slow>This is important.</slow><pause 500>
+Now speaking <fast>very quickly!</fast>
+```
 
 ## Setup
 

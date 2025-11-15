@@ -134,9 +134,17 @@ Example: Hello<pause 1s>how are you?"></textarea>
                         <p><strong>&lt;pause&gt;</strong> - default pause (500ms)</p>
                     </div>
 
+                    <h3>Speed Control Tags:</h3>
+                    <p>Control speech speed within your text:</p>
+
+                    <div class="syntax-box">
+                        <p><strong>&lt;slow&gt;text&lt;/slow&gt;</strong> - speaks slower</p>
+                        <p><strong>&lt;fast&gt;text&lt;/fast&gt;</strong> - speaks faster</p>
+                    </div>
+
                     <h3>Example:</h3>
                     <div class="example-box">
-                        <p>Hello&lt;pause 800&gt;how are you?&lt;pause 1s&gt;I'm doing great!&lt;pause&gt;Thanks for asking.</p>
+                        <p>Hello&lt;pause 800&gt;how are you? &lt;slow&gt;I'm doing great&lt;/slow&gt;!&lt;pause 1s&gt;Thanks for asking &lt;fast&gt;have a nice day&lt;/fast&gt;.</p>
                     </div>
 
                     <h3>Notes:</h3>
@@ -144,6 +152,7 @@ Example: Hello<pause 1s>how are you?"></textarea>
                         <li>Pause tags are removed from the final audio</li>
                         <li>You can use milliseconds (default) or seconds (add 's' suffix)</li>
                         <li>Pauses work with all languages and voices</li>
+                        <li>Speed tags (&lt;slow&gt; and &lt;fast&gt;) work locally in any part of text</li>
                         <li>The server needs FFmpeg installed for pause support</li>
                     </ul>
                 </div>

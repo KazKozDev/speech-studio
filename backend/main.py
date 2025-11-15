@@ -55,6 +55,10 @@ logger = logging.getLogger(__name__)
 # Pause tag regex pattern
 PAUSE_TAG_REGEX = r'<pause\s*(\d*\.?\d*)\s*(s|ms)?\s*>'
 
+# Speed tags regex patterns
+SLOW_TAG_REGEX = r'<slow>(.*?)</slow>'
+FAST_TAG_REGEX = r'<fast>(.*?)</fast>'
+
 # Supported voices by language
 SUPPORTED_VOICES = {
     "ru": {
@@ -223,6 +227,17 @@ class TTSStatus(BaseModel):
     message: str
 
 
+def convert_speed_tags(text: str) -> str:
+    """Convert <slow> and <fast> tags to SSML prosody tags"""
+    # Convert <slow>text</slow> to <prosody rate="slower">text</prosody>
+    text = re.sub(SLOW_TAG_REGEX, r'<prosody rate="slower">\1</prosody>', text, flags=re.IGNORECASE)
+
+    # Convert <fast>text</fast> to <prosody rate="faster">text</prosody>
+    text = re.sub(FAST_TAG_REGEX, r'<prosody rate="faster">\1</prosody>', text, flags=re.IGNORECASE)
+
+    return text
+
+
 def parse_pauses(text: str) -> List[tuple]:
     """Parse text into parts with pause tags"""
     parts = []
@@ -354,13 +369,16 @@ async def synthesize_tts(request: TTSRequest):
 
         logger.info(f"Generating TTS: {request.language}/{request.voice}, speed={request.speed}, quality={request.quality}, format={request.format}")
 
+        # Convert speed tags to SSML
+        processed_text = convert_speed_tags(request.text)
+
         # Parse text for pauses
-        parts = parse_pauses(request.text)
+        parts = parse_pauses(processed_text)
 
         # If no pauses or pydub unavailable, use simple method
         if not any(p[0] == 'pause' for p in parts) or not PYDUB_AVAILABLE:
             communicate = edge_tts.Communicate(
-                text=request.text,
+                text=processed_text,
                 voice=voice_code,
                 rate=rate
             )

@@ -388,11 +388,13 @@ I will now pause for one second.<pause 1s>
 
 The pause above was one second long.
 
-Here's another example with a shorter pause.<pause 500>
-This text comes right after the pause.
+Here's an example with speed control. <slow>This part will be spoken slowly.</slow><pause 500>And <fast>this part will be spoken quickly.</fast>
 
-You can use seconds with the 's' suffix, or milliseconds without it.
-Both <pause 1.5s>and<pause 1500>are valid.`;
+You can combine pauses and speed tags:
+<slow>Important message here.</slow><pause 1s>
+Then continue at normal speed.
+
+Both pause tags and speed tags work together in the same text.`;
 
     textInput.value = exampleText;
     updateCharCount();
