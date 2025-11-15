@@ -10,8 +10,6 @@ Unlike standard TTS, we enhanced audio quality by:
 - **Quality selection** - choose between normal (128 kbps) or high quality (320 kbps) based on your needs
 - **Speed control** - adjust voice speed -50% to +50% with automatic bitrate optimization for clarity
 
-<img width="976" height="749" alt="Screenshot 2025-11-15 at 13 35 25" src="https://github.com/user-attachments/assets/f36595aa-f655-4064-91db-375d6da250cc" />
-
 
 ## Supported Languages
 
