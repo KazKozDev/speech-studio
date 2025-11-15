@@ -79,4 +79,12 @@ The app will start on http://0.0.0.0:8000 - open it in your browser to begin syn
 
 ## 100% Free
 
-No limits on synthesis count, text length, or downloads. Use for commercial projects, YouTube, education - completely free.
+No limits on synthesis count, text length, or downloads.
+
+## Disclaimer
+
+This project uses Microsoft Edge TTS through an open-source library. It's designed for **personal, educational, and non-commercial use only**.
+
+For commercial projects and production use, please use the official **Microsoft Azure Speech Services API**, which requires a paid subscription. This ensures proper licensing and reliability.
+
+The edge-tts library is community-maintained and not officially supported by Microsoft.
